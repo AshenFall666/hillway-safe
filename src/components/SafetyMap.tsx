@@ -2,65 +2,118 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { MapPin, Navigation, AlertTriangle, Shield, RefreshCw } from 'lucide-react';
+import L from 'leaflet';
+import { subscribeToHazards } from '@/lib/hazardService';
+import { Hazard } from '@/types/hazard';
 
-// Mock hazard data - in real app this would come from Firebase
-const mockHazards = [
-  {
-    id: '1',
-    type: 'fog',
-    location: { lat: 27.7172, lng: 85.3240 },
-    severity: 'high',
-    reportedAt: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
-    reportedBy: 'Truck Driver #247'
-  },
-  {
-    id: '2',
-    type: 'construction',
-    location: { lat: 27.7272, lng: 85.3340 },
-    severity: 'medium',
-    reportedAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-    reportedBy: 'Bus Driver #089'
-  },
-  {
-    id: '3',
-    type: 'livestock',
-    location: { lat: 27.7072, lng: 85.3140 },
-    severity: 'critical',
-    reportedAt: new Date(Date.now() - 10 * 60 * 1000), // 10 minutes ago
-    reportedBy: 'Local Resident'
-  }
-];
+// Import Leaflet CSS
+import 'leaflet/dist/leaflet.css';
+
+// Fix for default markers in Leaflet
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
 
 export function SafetyMap() {
   const mapRef = useRef<HTMLDivElement>(null);
+  const leafletMapRef = useRef<L.Map | null>(null);
+  const markersRef = useRef<L.Marker[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [hazards, setHazards] = useState(mockHazards);
+  const [hazards, setHazards] = useState<Hazard[]>([]);
   const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
 
   useEffect(() => {
-    // Simulate map loading
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1500);
-
-    // Simulate getting user location
+    // Get user location
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          setUserLocation({
+          const location = {
             lat: position.coords.latitude,
             lng: position.coords.longitude
-          });
+          };
+          setUserLocation(location);
+          initializeMap(location);
         },
         () => {
           // Default to Kathmandu area if location fails
-          setUserLocation({ lat: 27.7172, lng: 85.3240 });
+          const defaultLocation = { lat: 27.7172, lng: 85.3240 };
+          setUserLocation(defaultLocation);
+          initializeMap(defaultLocation);
         }
       );
+    } else {
+      const defaultLocation = { lat: 27.7172, lng: 85.3240 };
+      setUserLocation(defaultLocation);
+      initializeMap(defaultLocation);
     }
 
-    return () => clearTimeout(timer);
+    return () => {
+      if (leafletMapRef.current) {
+        leafletMapRef.current.remove();
+      }
+    };
   }, []);
+
+  useEffect(() => {
+    // Subscribe to hazards from Firebase
+    const unsubscribe = subscribeToHazards((newHazards) => {
+      setHazards(newHazards);
+      updateMapMarkers(newHazards);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const initializeMap = (location: {lat: number, lng: number}) => {
+    if (!mapRef.current) return;
+
+    try {
+      const map = L.map(mapRef.current).setView([location.lat, location.lng], 13);
+      
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(map);
+
+      // Add user location marker
+      L.marker([location.lat, location.lng])
+        .addTo(map)
+        .bindPopup('Your Location')
+        .openPopup();
+
+      leafletMapRef.current = map;
+      setIsLoading(false);
+    } catch (error) {
+      console.error('Error initializing map:', error);
+      setIsLoading(false);
+    }
+  };
+
+  const updateMapMarkers = (hazards: Hazard[]) => {
+    if (!leafletMapRef.current) return;
+
+    // Clear existing hazard markers
+    markersRef.current.forEach(marker => {
+      leafletMapRef.current?.removeLayer(marker);
+    });
+    markersRef.current = [];
+
+    // Add new hazard markers
+    hazards.forEach(hazard => {
+      const marker = L.marker([hazard.location.lat, hazard.location.lng])
+        .addTo(leafletMapRef.current!)
+        .bindPopup(`
+          <strong>${hazard.type.toUpperCase()}</strong><br/>
+          Severity: ${hazard.severity}<br/>
+          Reported: ${hazard.reportedAt.toLocaleTimeString()}<br/>
+          By: ${hazard.reportedBy}
+        `);
+      
+      markersRef.current.push(marker);
+    });
+  };
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
@@ -82,11 +135,9 @@ export function SafetyMap() {
   };
 
   const refreshHazards = () => {
-    setIsLoading(true);
-    // Simulate refresh
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 1000);
+    if (leafletMapRef.current && userLocation) {
+      leafletMapRef.current.setView([userLocation.lat, userLocation.lng], 13);
+    }
   };
 
   return (
@@ -117,29 +168,11 @@ export function SafetyMap() {
           ref={mapRef} 
           className="h-64 bg-gradient-terrain rounded-lg border relative overflow-hidden"
         >
-          {isLoading ? (
-            <div className="absolute inset-0 flex items-center justify-center bg-muted/50">
+          {isLoading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-muted/50 z-10">
               <div className="flex items-center gap-2 text-muted-foreground">
                 <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                 <span className="text-sm">Loading map...</span>
-              </div>
-            </div>
-          ) : (
-            <div className="absolute inset-0 p-4">
-              {/* Simulated map with hazard markers */}
-              <div className="w-full h-full bg-muted/20 rounded border-2 border-dashed border-muted-foreground/30 flex items-center justify-center">
-                <div className="text-center text-muted-foreground">
-                  <MapPin className="w-8 h-8 mx-auto mb-2" />
-                  <p className="text-sm">Interactive map will load here</p>
-                  <p className="text-xs">Leaflet.js integration</p>
-                </div>
-              </div>
-              
-              {/* Hazard markers overlay */}
-              <div className="absolute top-6 left-6">
-                <div className="bg-primary/90 text-white px-2 py-1 rounded text-xs font-medium">
-                  📍 Your Location
-                </div>
               </div>
             </div>
           )}

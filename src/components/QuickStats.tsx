@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, AlertTriangle, Clock, TrendingUp } from 'lucide-react';
+import { getHazardStats } from '@/lib/hazardService';
 
 interface StatCard {
   title: string;
@@ -10,38 +11,80 @@ interface StatCard {
   trend?: 'up' | 'down' | 'neutral';
 }
 
-const stats: StatCard[] = [
-  {
-    title: 'Active Reporters',
-    value: '247',
-    description: 'Drivers online now',
-    icon: <Users className="w-4 h-4" />,
-    trend: 'up'
-  },
-  {
-    title: 'Hazards Today',
-    value: '12',
-    description: 'Reports in last 24h',
-    icon: <AlertTriangle className="w-4 h-4" />,
-    trend: 'down'
-  },
-  {
-    title: 'Avg Response',
-    value: '3.2min',
-    description: 'Alert to community',
-    icon: <Clock className="w-4 h-4" />,
-    trend: 'up'
-  },
-  {
-    title: 'Safety Score',
-    value: '87%',
-    description: 'Current route safety',
-    icon: <TrendingUp className="w-4 h-4" />,
-    trend: 'up'
-  }
-];
-
 export function QuickStats() {
+  const [stats, setStats] = useState<StatCard[]>([
+    {
+      title: 'Active Reporters',
+      value: '...',
+      description: 'Drivers online now',
+      icon: <Users className="w-4 h-4" />,
+      trend: 'up'
+    },
+    {
+      title: 'Hazards Today',
+      value: '...',
+      description: 'Reports in last 24h',
+      icon: <AlertTriangle className="w-4 h-4" />,
+      trend: 'down'
+    },
+    {
+      title: 'Avg Response',
+      value: '...',
+      description: 'Alert to community',
+      icon: <Clock className="w-4 h-4" />,
+      trend: 'up'
+    },
+    {
+      title: 'Safety Score',
+      value: '...',
+      description: 'Current route safety',
+      icon: <TrendingUp className="w-4 h-4" />,
+      trend: 'up'
+    }
+  ]);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const data = await getHazardStats();
+        setStats([
+          {
+            title: 'Active Reporters',
+            value: data.activeCommunity.toString(),
+            description: 'Drivers online now',
+            icon: <Users className="w-4 h-4" />,
+            trend: 'up'
+          },
+          {
+            title: 'Hazards Today',
+            value: data.reportsToday.toString(),
+            description: 'Reports in last 24h',
+            icon: <AlertTriangle className="w-4 h-4" />,
+            trend: 'down'
+          },
+          {
+            title: 'Avg Response',
+            value: `${data.averageResponseTime}min`,
+            description: 'Alert to community',
+            icon: <Clock className="w-4 h-4" />,
+            trend: 'up'
+          },
+          {
+            title: 'Safety Score',
+            value: '87%',
+            description: 'Current route safety',
+            icon: <TrendingUp className="w-4 h-4" />,
+            trend: 'up'
+          }
+        ]);
+      } catch (error) {
+        console.error('Error fetching stats:', error);
+      }
+    };
+
+    fetchStats();
+  }, []);
+
   const getTrendColor = (trend?: string) => {
     switch (trend) {
       case 'up': return 'text-accent';

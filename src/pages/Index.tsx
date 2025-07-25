@@ -2,6 +2,7 @@ import { AppHeader } from '@/components/AppHeader';
 import { HazardReporting } from '@/components/HazardReporting';
 import { SafetyMap } from '@/components/SafetyMap';
 import { QuickStats } from '@/components/QuickStats';
+import { ConfigHelp } from '@/components/ConfigHelp';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Shield, Navigation, AlertTriangle, Users } from 'lucide-react';
@@ -71,6 +72,11 @@ const Index = () => {
             </div>
             <SafetyMap />
           </div>
+        </section>
+
+        {/* Firebase Configuration Helper */}
+        <section className="py-4">
+          <ConfigHelp />
         </section>
 
         {/* Community Impact */}
