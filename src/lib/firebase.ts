@@ -1,20 +1,10 @@
-import { initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
-
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  // Add your Firebase config here
-  // For development, you can use these placeholder values
-  // Replace with your actual Firebase project config
-  apiKey: "your-api-key",
-  authDomain: "your-project.firebaseapp.com",
-  projectId: "hill-sync-transit",
-  storageBucket: "your-project.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "your-app-id"
+  apiKey: "AIzaSyCOym9QENDNzbaSyqHHq-QZW10YtZBc5dM",
+  authDomain: "hillway-40f63.firebaseapp.com",
+  projectId: "hillway-40f63",
+  storageBucket: "hillway-40f63.firebasestorage.app",
+  messagingSenderId: "702589145642",
+  appId: "1:702589145642:web:81eca59b8905a885252953",
+  measurementId: "G-T3GN8X7E9W"
 };
-
-const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
-export const auth = getAuth(app);
-export default app;
